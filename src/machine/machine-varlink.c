@@ -568,7 +568,8 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                  * and the caller's do not match, authorization will be required. It's only the case where the
                  * caller owns the machine that will be shortcut and needs to be checked here. */
                 if (machine->uid != 0) {
-                        assert(machine->class != MACHINE_HOST);
+                        if (machine->class == MACHINE_HOST)
+                                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
                         r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &machine->leader, NAMESPACE_USER);
                         if (r < 0)

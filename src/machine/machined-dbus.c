@@ -256,6 +256,8 @@ static int machine_add_from_params(
         assert(message);
         assert(name);
         assert(c == _MACHINE_CLASS_INVALID || MACHINE_CLASS_CAN_REGISTER(c));
+        if (c != _MACHINE_CLASS_INVALID && !MACHINE_CLASS_CAN_REGISTER(c))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class");
         assert(leader_pidref);
         assert(supervisor_pidref);
         assert(ret);
