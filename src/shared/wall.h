@@ -3,6 +3,12 @@
 
 #include "forward.h"
 
+/* Strips escape sequences and control characters from a message that is about to be broadcast to
+ * other users' terminals. Returns NULL on allocation failure. Declared unconditionally: the
+ * implementation is pure string processing and the regression test links against it in every
+ * configuration, including builds with both utmp and logind disabled. */
+char *wall_sanitize_message(const char *message);
+
 #if ENABLE_UTMP || ENABLE_LOGIND
 
 int wall(
