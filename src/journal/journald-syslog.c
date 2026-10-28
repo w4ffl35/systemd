@@ -419,6 +419,11 @@ void manager_process_syslog_message(
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
 
+        /* Fork-only G1b: gate the forward sinks on the same rate limit as storage, with one decision per
+         * message shared with the dispatch below. A suppressed message is dropped, never forwarded. */
+        if (manager_check_ratelimit(m, context, priority) == 0)
+                return;
+
         if (m->config.forward_to_syslog)
                 forward_syslog_raw(m, priority, buf, raw_len, ucred, tv);
 
@@ -487,7 +492,7 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
-        manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
+        manager_dispatch_message_prechecked(m, iovec, n, mm, context, tv, priority, 0);
 }
 
 int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {

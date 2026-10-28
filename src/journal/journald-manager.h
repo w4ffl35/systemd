@@ -170,6 +170,15 @@ typedef struct Manager {
 #define N_IOVEC_AUDIT_FIELDS 64
 
 void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t mm, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
+/* Fork-only hardening for G1b (journal forward flood): test the per-unit rate limit once per message and share
+ * the decision between the forward sinks and storage, so a storage-suppressed message is never forwarded.
+ * Returns 0 if the message is rate-suppressed and must be dropped (not forwarded, not stored), a positive
+ * value if it may be forwarded and stored, and a negative errno on internal error (treated as allowed, as
+ * before). Senders without a unit are never limited, exactly like the storage path. */
+int manager_check_ratelimit(Manager *m, ClientContext *c, int priority);
+/* Like manager_dispatch_message(), but the rate limit was already tested with manager_check_ratelimit() for
+ * this message, so it is not tested again. Only for transports that gate their forwards on that decision. */
+void manager_dispatch_message_prechecked(Manager *m, struct iovec *iovec, size_t n, size_t mm, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
 #define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 

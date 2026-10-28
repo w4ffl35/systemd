@@ -280,6 +280,11 @@ static int manager_process_entry(
                 if (r <= 0)
                         goto finish;
 
+                /* Fork-only G1b: gate the forward sinks on the same rate limit as storage, with one decision
+                 * per message shared with the dispatch below. A suppressed message is dropped, never forwarded. */
+                if (manager_check_ratelimit(m, context, priority) == 0)
+                        goto finish;
+
                 if (m->config.forward_to_syslog)
                         manager_forward_syslog(m, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
@@ -293,7 +298,7 @@ static int manager_process_entry(
                         manager_forward_wall(m, priority, identifier, message, ucred);
         }
 
-        manager_dispatch_message(m, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
+        manager_dispatch_message_prechecked(m, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {
