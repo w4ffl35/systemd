@@ -133,6 +133,20 @@ run0 -u testuser  \
         /run/systemd/machine/io.systemd.Machine \
         io.systemd.Machine.Open \
         '{"name":"shouldnotwork3", "mode": "shell", "user":"root","path":"/usr/bin/bash","args":["bash","-c","''touch /shouldnotwork; sleep 20''"]}')
+# Hardening: shouldnotwork3 runs in the root user namespace, so Open must be
+# denied in every mode, not just shell.
+(! run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Open \
+        '{"name":"shouldnotwork3", "mode": "tty"}')
+(! run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Open \
+        '{"name":"shouldnotwork3", "mode": "login"}')
 (! varlinkctl \
     call \
     /run/systemd/machine/io.systemd.Machine \
