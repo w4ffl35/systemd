@@ -561,10 +561,12 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
-                /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users
-                 * registering a process they own in the root user namespace, and then shelling in as root
-                 * or another user. Note that the shell operation is privileged and requires 'auth_admin', so we
-                 * do not need to check the caller's uid, as that will be checked by polkit, and if the machine's
+                /* Ensure only root can open into the root namespace. This is to avoid unprivileged users
+                 * registering a process they own in the root user namespace, and then opening a session
+                 * as root or another user in any mode (shell, tty, login). The denial below is explicit
+                 * and unconditional: it applies in all build modes and does not rely on assertions.
+                 * Note that the open operation is privileged and requires 'auth_admin', so we do not need
+                 * to check the caller's uid, as that will be checked by polkit, and if the machine's
                  * and the caller's do not match, authorization will be required. It's only the case where the
                  * caller owns the machine that will be shortcut and needs to be checked here. */
                 if (machine->uid != 0) {
