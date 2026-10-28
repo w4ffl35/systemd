@@ -77,6 +77,11 @@ static int suitable_home_record(UserRecord *hr) {
          * home records in general. Let's enforce the stricter rule here. */
         if (!suitable_user_name(hr->user_name))
                 return -EINVAL;
+
+        STRV_FOREACH(a, hr->aliases)
+                if (!suitable_user_name(*a))
+                        return -EINVAL;
+
         if (!uid_is_valid(hr->uid))
                 return -EINVAL;
 
