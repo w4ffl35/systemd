@@ -920,6 +920,20 @@ testcase_alias() {
     homectl remove aliastest
 }
 
+testcase_alias_namespace() {
+    # CVE-2026-16742: aliases must be held to the same suitability rules as the
+    # primary user name. A reserved/system name accepted as an alias would be
+    # registered for name-based lookups and shadow that name.
+    (! NEWPASSWORD=hunter4711 homectl create aliassquat --storage=directory --alias=systemd-reserved-alias-probe)
+    (! NEWPASSWORD=hunter4711 homectl create aliassquat --storage=directory --alias=_reserved_alias_probe)
+    (! NEWPASSWORD=hunter4711 homectl create aliassquat2 --storage=directory --alias=aliassquat3 --alias=systemd-reserved-alias-probe2)
+
+    # Sanity check: ordinary aliases are still accepted.
+    NEWPASSWORD=hunter4711 homectl create aliassquat --storage=directory --alias=aliassquat-alias
+    homectl inspect aliassquat-alias
+    homectl remove aliassquat
+}
+
 testcase_quota() {
     # 'run0 -u' requires systemd NSS module.
     if ! check_nss_module systemd; then
