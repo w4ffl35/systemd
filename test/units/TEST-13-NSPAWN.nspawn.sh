@@ -1689,4 +1689,33 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_pivot_root_normalized() {
+    local pivot output
+
+    # CVE-2026-40226: PivotRoot= paths (from --pivot-root= or a crafted
+    # .nspawn settings file) must be normalized. A ".." component would
+    # otherwise pivot the container onto the host filesystem (escape to
+    # host), so such values have to be rejected already while parsing.
+    for pivot in /newroot/../escape /newroot/./escape /newroot//escape /..; do
+        if output="$(systemd-nspawn --pivot-root="$pivot" --help 2>&1)"; then
+            echo "Non-normalized --pivot-root=$pivot unexpectedly accepted"
+            return 1
+        fi
+        grep -q "Failed to parse --pivot-root= argument" <<<"$output" || return 1
+    done
+
+    # The same holds for the old-root side of the pair.
+    for pivot in /newroot:/oldroot/../../escape /newroot:/oldroot/./escape /newroot:relative; do
+        if output="$(systemd-nspawn --pivot-root="$pivot" --help 2>&1)"; then
+            echo "Non-normalized --pivot-root=$pivot unexpectedly accepted"
+            return 1
+        fi
+        grep -q "Failed to parse --pivot-root= argument" <<<"$output" || return 1
+    done
+
+    # Normalized paths are still accepted at parse time.
+    systemd-nspawn --pivot-root=/newroot --help >/dev/null || return 1
+    systemd-nspawn --pivot-root=/newroot:/oldroot --help >/dev/null || return 1
+}
+
 run_testcases
