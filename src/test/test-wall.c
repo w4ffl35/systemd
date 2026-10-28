@@ -16,8 +16,8 @@ TEST(wall_sanitize_message_plain) {
         ASSERT_STREQ(s, "line1\tindented\nline2\r\nline3");
         s = mfree(s);
 
-        assert_se(s = wall_sanitize_message("Grüße — 日本語"));
-        ASSERT_STREQ(s, "Grüße — 日本語");
+        assert_se(s = wall_sanitize_message("Grüße - 日本語"));
+        ASSERT_STREQ(s, "Grüße - 日本語");
         s = mfree(s);
 
         assert_se(s = wall_sanitize_message(""));
