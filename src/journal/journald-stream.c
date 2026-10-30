@@ -255,6 +255,11 @@ static int stdout_stream_log(
         if (r <= 0)
                 return r;
 
+        /* Fork-only G1b: gate the forward sinks on the same rate limit as storage, with one decision per
+         * message shared with the dispatch below. A suppressed message is dropped, never forwarded. */
+        if (manager_check_ratelimit(s->manager, s->context, priority) == 0)
+                return 0;
+
         if (s->forward_to_syslog || s->manager->config.forward_to_syslog)
                 manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
@@ -306,7 +311,7 @@ static int stdout_stream_log(
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        manager_dispatch_message(s->manager, iovec, n, m, s->context, NULL, priority, 0);
+        manager_dispatch_message_prechecked(s->manager, iovec, n, m, s->context, NULL, priority, 0);
         return 0;
 }
 

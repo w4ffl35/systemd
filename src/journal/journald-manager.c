@@ -1270,16 +1270,48 @@ void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *f
         }
 }
 
-void manager_dispatch_message(
+int manager_check_ratelimit(
+                Manager *m,
+                ClientContext *c,
+                int priority) {
+
+        uint64_t available = 0;
+        int rl;
+
+        assert(m);
+
+        if (!c || !c->unit)
+                return 1;
+
+        (void) manager_determine_space(m, &available, /* limit= */ NULL);
+
+        rl = journal_ratelimit_test(
+                        &m->ratelimit_groups_by_id,
+                        c->unit,
+                        c->log_ratelimit_interval,
+                        c->log_ratelimit_burst,
+                        LOG_PRI(priority),
+                        available);
+        if (rl == 0)
+                return 0;
+
+        /* Write a suppression message if we suppressed something */
+        if (rl > 1)
+                manager_driver_message(m, c->pid,
+                                      LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_DROPPED_STR),
+                                      LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
+                                      LOG_ITEM("N_DROPPED=%i", rl - 1));
+
+        return rl;
+}
+
+void manager_dispatch_message_prechecked(
                 Manager *m,
                 struct iovec *iovec, size_t n, size_t mm,
                 ClientContext *c,
                 const struct timeval *tv,
                 int priority,
                 pid_t object_pid) {
-
-        uint64_t available = 0;
-        int rl;
 
         assert(m);
         assert(iovec || n == 0);
@@ -1295,26 +1327,33 @@ void manager_dispatch_message(
         if (m->config.storage == STORAGE_NONE)
                 return;
 
-        if (c && c->unit) {
-                (void) manager_determine_space(m, &available, /* limit= */ NULL);
+        manager_dispatch_message_real(m, iovec, n, mm, c, tv, priority, object_pid);
+}
 
-                rl = journal_ratelimit_test(
-                                &m->ratelimit_groups_by_id,
-                                c->unit,
-                                c->log_ratelimit_interval,
-                                c->log_ratelimit_burst,
-                                LOG_PRI(priority),
-                                available);
-                if (rl == 0)
-                        return;
+void manager_dispatch_message(
+                Manager *m,
+                struct iovec *iovec, size_t n, size_t mm,
+                ClientContext *c,
+                const struct timeval *tv,
+                int priority,
+                pid_t object_pid) {
 
-                /* Write a suppression message if we suppressed something */
-                if (rl > 1)
-                        manager_driver_message(m, c->pid,
-                                              LOG_MESSAGE_ID(SD_MESSAGE_JOURNAL_DROPPED_STR),
-                                              LOG_MESSAGE("Suppressed %i messages from %s", rl - 1, c->unit),
-                                              LOG_ITEM("N_DROPPED=%i", rl - 1));
-        }
+        assert(m);
+        assert(iovec || n == 0);
+
+        if (n == 0)
+                return;
+
+        if (LOG_PRI(priority) > m->config.max_level_store)
+                return;
+
+        /* Stop early in case the information will not be stored
+         * in a journal. */
+        if (m->config.storage == STORAGE_NONE)
+                return;
+
+        if (manager_check_ratelimit(m, c, priority) == 0)
+                return;
 
         manager_dispatch_message_real(m, iovec, n, mm, c, tv, priority, object_pid);
 }
